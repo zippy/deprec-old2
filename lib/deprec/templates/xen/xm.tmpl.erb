@@ -87,3 +87,8 @@ on_crash    = 'restart'
     $OUT .= "xen_shell = '$admins'\n";
   }
 }
+
+# Hack for Ubuntu gutsy
+# https://bugs.launchpad.net/ubuntu/+source/xen-3.1/+bug/144631
+#
+extra = ' TERM=xterm xencons=tty console=tty1'
