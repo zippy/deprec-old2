@@ -2,14 +2,21 @@
 Capistrano::Configuration.instance(:must_exist).load do 
   namespace :deprec do
     namespace :xen do
+            
+      desc "Install Xen"
+      task :install, :roles => :dom0 do
+        install_deps
+        enable_hardy_domu
+      end
       
-      # Config variables for migration
-      default(:xen_slice) { Capistrano::CLI.ui.ask("Slice name") }
-      default(:xen_old_host) { Capistrano::CLI.ui.ask("Old Xen host") }
-      default(:xen_new_host) { Capistrano::CLI.ui.ask("New Xen host") }
-      set(:xen_disk_size) { Capistrano::CLI.ui.ask("Disk size (GB)") }
-      set(:xen_swap_size) { Capistrano::CLI.ui.ask("Swap size (GB)") }
+      task :install_deps, :roles => :dom0 do
+        # for amd64 version of ubuntu 7.10
+        apt.install( {:base => %w(linux-image-xen bridge-utils libxen3.1 python-xen-3.1 xen-docs-3.1 xen-hypervisor-3.1 xen-ioemu-3.1 xen-tools xen-utils-3.1 lvm2)}, :stable )
+        # alternatively, for x86 version of ubuntu:
+        # apt-get install ubuntu-xen-server libc6-xen    
+      end
       
+      # Includes some hacks to get xen-tools working on Ubuntu gutsy
       # ref: http://www.eadz.co.nz/blog/article/xen-gutsy.html
       
       SYSTEM_CONFIG_FILES[:xen] = [
@@ -53,20 +60,7 @@ Capistrano::Configuration.instance(:must_exist).load do
          :owner => 'root:root'}
          
       ]
-      
-      desc "Install Xen"
-      task :install, :roles => :dom0 do
-        install_deps
-        enable_hardy_domu
-      end
-      
-      task :install_deps, :roles => :dom0 do
-        # for amd64 version of ubuntu 7.10
-        apt.install( {:base => %w(linux-image-xen bridge-utils libxen3.1 python-xen-3.1 xen-docs-3.1 xen-hypervisor-3.1 xen-ioemu-3.1 xen-tools xen-utils-3.1 lvm2)}, :stable )
-        # alternatively, for x86 version of ubuntu:
-        # apt-get install ubuntu-xen-server libc6-xen    
-      end
-      
+            
       desc "Generate configuration file(s) for Xen from template(s)"
       task :config_gen do
         SYSTEM_CONFIG_FILES[:xen].each do |file|
@@ -113,6 +107,16 @@ Capistrano::Configuration.instance(:must_exist).load do
         sudo "xm info"
       end
 
+      # Handy commands for migrating a slice between servers
+      # Not as fast and effortless as I had hoped! -Mike
+      
+      # Config variables for migration
+      default(:xen_slice) { Capistrano::CLI.ui.ask("Slice name") }
+      default(:xen_old_host) { Capistrano::CLI.ui.ask("Old Xen host") }
+      default(:xen_new_host) { Capistrano::CLI.ui.ask("New Xen host") }
+      set(:xen_disk_size) { Capistrano::CLI.ui.ask("Disk size (GB)") }
+      set(:xen_swap_size) { Capistrano::CLI.ui.ask("Swap size (GB)") }
+      
       desc "Migrate a slice on one Xen host to another. Slice is stopped, disk is tar'd up and transferred to new host."
       task :migrate do
 
@@ -124,7 +128,6 @@ Capistrano::Configuration.instance(:must_exist).load do
         create_lvm_disks
         build_slice_from_tarball
       end
-
 
       task :copy_disk do
         mnt_dir = "/mnt/#{xen_slice}-disk"
@@ -179,6 +182,8 @@ Capistrano::Configuration.instance(:must_exist).load do
         sudo "umount #{mnt_dir}", :hosts => xen_new_host
         sudo "rmdir #{mnt_dir}", :hosts => xen_new_host
       end
+      #
+      # end of migration tasks
       
       desc "Enable hardy heron domU's on gutsy dom0"
       task :enable_hardy_domu, :roles => :dom0 do
