@@ -41,6 +41,28 @@ Capistrano::Configuration.instance(:must_exist).load do
     deploy.cleanup
   end
 
+  def random_password(size = 8)
+    chars = (('a'..'z').to_a + ('0'..'9').to_a) - %w(i o 0 1 l 0)
+    (1..size).collect{|a| chars[rand(chars.size)] }.join
+  end
+  
+  def build_db_params(ask=true)
+    db_params = {
+      "adapter"=> db_server_type.to_s,
+      "database"=>"#{application}_#{rails_env}",
+      "username"=> db_server_type == :postgresql ? ((app_server_type == :mongrel)? "mongrel_#{application}" : "nobody") : "root",
+      "password"=> random_password,
+      "host"=>"localhost",
+      "socket"=>""
+    }
+
+    db_params.each do |param, default_val|
+      set "db_#{param}".to_sym, 
+        ask ? lambda { Capistrano::CLI.ui.ask "Enter database #{param}" do |q| q.default=default_val end} : default_val
+    end
+    db_params
+  end
+
   namespace :deprec do
     namespace :rails do
       
@@ -214,49 +236,28 @@ Capistrano::Configuration.instance(:must_exist).load do
         top.deprec.monit.activate
       end
 
-      # database.yml stuff
-      #
-      # XXX DRY this up 
-      # I don't know how to let :gen_db_yml check if values have been set.
-      #
-      # if (self.respond_to?("db_host_#{rails_env}".to_sym)) # doesn't seem to work
+      desc "prompt the user for the parameters that need to be the database.yml file and push it up to the server"
+      task :generate_database_yml, :roles => :app do
+        set :db_params, build_db_params
+        upload_database_yml
+      end
 
-      set :db_host_default, lambda { Capistrano::CLI.prompt 'Enter database host', 'localhost'}
-      set :db_host_staging, lambda { db_host_default }
-      set :db_host_production, lambda { db_host_default }
+      desc "create a default set of parameters that for the database.yml file and push it up to the server"
+      task :generate_default_database_yml, :roles => :app do
+        set :db_params, build_db_params(false)
+        upload_database_yml
+      end
 
-      set :db_name_default, lambda { Capistrano::CLI.prompt 'Enter database name', "#{application}_#{rails_env}" }
-      set :db_name_staging, lambda { db_name_default }
-      set :db_name_production, lambda { db_name_default }
-
-      set :db_user_default, lambda { Capistrano::CLI.prompt 'Enter database user', 'root' }
-      set :db_user_staging, lambda { db_user_default }
-      set :db_user_production, lambda { db_user_default }
-
-      set :db_pass_default, lambda { Capistrano::CLI.prompt 'Enter database pass', '' }
-      set :db_pass_staging, lambda { db_pass_default }
-      set :db_pass_production, lambda { db_pass_default }
-
-      set :db_adaptor_default, lambda { Capistrano::CLI.prompt 'Enter database adaptor', 'mysql' }
-      set :db_adaptor_staging, lambda { db_adaptor_default }
-      set :db_adaptor_production, lambda { db_adaptor_default }
-
-      set :db_socket_default, lambda { Capistrano::CLI.prompt('Enter database socket', '')}
-      set :db_socket_staging, lambda { db_socket_default }
-      set :db_socket_production, lambda { db_socket_default }
-
-      task :generate_database_yml, :roles => :app do    
-        database_configuration = render :template => <<-EOF
-        #{rails_env}:
-        adapter: #{self.send("db_adaptor_#{rails_env}")}
-        database: #{self.send("db_name_#{rails_env}")}
-        username: #{self.send("db_user_#{rails_env}")}
-        password: #{self.send("db_pass_#{rails_env}")}
-        host: #{self.send("db_host_#{rails_env}")}
-        socket: #{self.send("db_socket_#{rails_env}")}
-        EOF
-        run "mkdir -p #{deploy_to}/#{shared_dir}/config" 
-        put database_configuration, "#{deploy_to}/#{shared_dir}/config/database.yml" 
+      # this task adapted from http://crackthenut.cracklabs.com/deprec2-your-slice/
+      desc "create a yaml file from the db_params hash and push it up to the servers config/database.yml"
+      task :upload_database_yml, :roles => :app do
+        database_yml = "#{rails_env}:\n"
+        db_params.each do |param, default_val|
+          val=self.send("db_#{param}")
+          database_yml<<"  #{param}: #{val}\n"
+        end
+        run "mkdir -p #{deploy_to}/#{shared_dir}/config"
+        put database_yml, "#{deploy_to}/#{shared_dir}/config/database.yml"
       end
 
       desc "Link in the production database.yml" 
