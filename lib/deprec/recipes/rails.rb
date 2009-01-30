@@ -56,9 +56,12 @@ Capistrano::Configuration.instance(:must_exist).load do
       # install some required ruby gems
       task :install_gems do
         gem2.install 'sqlite3-ruby'
-        gem2.install 'mysql'
-        # gem2.install "mysql -- --with-mysql-config='/usr/bin/mysql_config'"
-        gem2.install 'postgres'
+        if db_server_type == :mysql
+          gem2.install 'mysql'
+          # gem2.install "mysql -- --with-mysql-config='/usr/bin/mysql_config'"
+        elsif db_server_type == :postgresql
+          gem2.install 'ruby-pg'
+        end
         gem2.install 'rails'
         gem2.install 'rake'
         gem2.install 'rspec'
