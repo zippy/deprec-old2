@@ -154,6 +154,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       end
       
       task :activate_system, :roles => :app do
+        sudo "a2enmod passenger"
         if use_mod_rewrite_for_disable
           sudo "a2enmod rewrite"
         end

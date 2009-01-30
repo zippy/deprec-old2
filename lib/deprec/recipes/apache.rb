@@ -6,7 +6,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       desc "Install apache"
       task :install do
         install_deps
-        enable_mod_rewrite
+        enable_mod_rewrite if use_mod_rewrite_for_disable
       end
       
       # install dependencies for apache
