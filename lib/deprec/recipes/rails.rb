@@ -289,10 +289,43 @@ Capistrano::Configuration.instance(:must_exist).load do
         run "cd #{deploy_to}/current && rake db:rollback RAILS_ENV=#{rails_env}"
       end
 
+      desc "Create the databases on the server manually instead of through the rails rake tasks"
+      task :create_manually, :roles => :db do
+        load_params
+        case db_server_type
+        when :mysql
+          run "echo 'create database #{db_name};' | mysql -u #{db_user} --password=#{db_password}"
+        when :postgresql
+          top.deprec.postgresql.createuser(db_user, db_password)
+          top.deprec.postgresql.createdb(db_name, db_user)
+        end
+      end
+
+      desc "Sets the db parameters taking into account whether they are stored in scm or independently on the server"
+      task :load_params do
+        # the database_yml is stored in the scm then the local version of config/database.yml
+        # will be correct for loading the db_params.  Otherwise we have to go out to the server
+        # and get it's copy
+        
+        begin
+          if database_yml_in_scm
+            file_name = 'config/database.yml'
+          else
+            file_name = "/tmp/database.yml"+Time.now.to_i.to_s
+            get "#{deploy_to}/#{shared_dir}/config/database.yml",file_name
+          end
+          set :db_params, YAML.load_file(file_name)
+          set :db_user, db_params[rails_env]["username"]
+          set :db_password, db_params[rails_env]["password"] 
+          set :db_name, db_params[rails_env]["database"]
+        ensure
+          File.delete(file_name) if !database_yml_in_scm
+        end
+      end
     end
 
   end
-  
+
 end
 
 
