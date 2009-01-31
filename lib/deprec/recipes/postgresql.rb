@@ -8,34 +8,12 @@ Capistrano::Configuration.instance(:must_exist).load do
       desc "Install postgresql"
       task :install, :roles => :db do
         install_deps
-        #that's hack to initialize database (this should be replaced with initdb or so)
-#        start
-#        config_gen
-#        config
-#        restart
       end
       
       # Install dependencies for PostgreSQL 
       task :install_deps, :roles => :db do
-        apt.install( {:base => %w(postgresql postgresql-client libpq-dev)}, :stable )  #for ubuntu 8.04 
-#        apt.install( {:base => %w(postgresql)}, :stable )  #for ubuntu 8.10
+        apt.install( {:base => %w(postgresql postgresql-client libpq-dev)}, :stable ) 
       end
- 
-      desc "Create Database" 
-      task :create_db, :roles => :db do
-        read_config
-#        createuser(db_user, db_password)
-        createdb(db_name, db_user)
-      end
-      
-      desc "Create DB according to production settings in database.yml"
-      task :setup_db do
-        top.deprec.postgresql.activate
-        top.deprec.postgresql.start
-        top.deprec.postgresql.create_db
-      end
- 
-      
       # Configuration
       
       SYSTEM_CONFIG_FILES[:postgresql] = [
@@ -93,6 +71,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       
       task :restore, :roles => :db do
       end
+<<<<<<< HEAD:lib/deprec/recipes/postgresql.rb
             
     end
   end
@@ -128,4 +107,35 @@ Capistrano::Configuration.instance(:must_exist).load do
     set :db_password, db_config[rails_env]["password"] 
     set :db_name, db_config[rails_env]["database"]
   end
+=======
+      
+      desc "Create a PostgreSQL user"
+      task :create_user, :roles => :db do
+        cmd = "su - postgres -c \'createuser -P -D -A -E #{db_user}\'"
+        sudo cmd do |channel, stream, data|
+          if data =~ /^Enter password for new/
+            channel.send_data "#{db_password}\n" 
+          end
+          if data =~ /^Enter it again:/
+            channel.send_data "#{db_password}\n" 
+          end
+          if data =~ /^Shall the new role be allowed to create more new roles?/
+            channel.send_data "n\n" 
+          end
+        end
+      end
+      
+      desc "Create a PostgreSQL Database" 
+      task :create_database, :roles => :db do
+        sudo "su - postgres -c \'createdb -O #{db_user} #{db_name}\'"          
+      end
+      
+      desc "Grant user access to Database" 
+      task :grant_user_access_to_database, :roles => :db do
+        # sudo "what's the command for this using #{db_user} #{db_name}\'"          
+      end
+            
+    end
+  end
+>>>>>>> d8b40b7... Added PostgreSQL recipes:lib/deprec/recipes/postgresql.rb
 end
