@@ -71,44 +71,7 @@ Capistrano::Configuration.instance(:must_exist).load do
       
       task :restore, :roles => :db do
       end
-<<<<<<< HEAD:lib/deprec/recipes/postgresql.rb
-            
-    end
-  end
- 
-# Imported from Rails Machine gem (Copyright (c) 2006 Bradley Taylor, bradley@railsmachine.com)
- 
-  def createdb(db, user)
-    sudo "su - postgres -c \'createdb -O #{user} #{db}\'"  
-  end
-  
-  def createuser(user, password)
-    cmd = "su - postgres -c \'createuser -P -D -A -E #{user}\'"
-    sudo cmd do |channel, stream, data|
-      if data =~ /^Enter password for new/
-        channel.send_data "#{password}\n" 
-      end
-      if data =~ /^Enter it again:/
-        channel.send_data "#{password}\n" 
-      end
-      if data =~ /^Shall the new role be allowed to create more new roles?/
-        channel.send_data "n\n" 
-      end
-    end
-  end
-  
-  def command(sql, database)
-    run "psql --command=\"#{sql}\" #{database}" 
-  end
-  
-  def read_config
-    db_config = YAML.load_file('config/database.yml')
-    set :db_user, db_config[rails_env]["username"]
-    set :db_password, db_config[rails_env]["password"] 
-    set :db_name, db_config[rails_env]["database"]
-  end
-=======
-      
+    
       desc "Create a PostgreSQL user"
       task :create_user, :roles => :db do
         cmd = "su - postgres -c \'createuser -P -D -A -E #{db_user}\'"
@@ -137,5 +100,4 @@ Capistrano::Configuration.instance(:must_exist).load do
             
     end
   end
->>>>>>> d8b40b7... Added PostgreSQL recipes:lib/deprec/recipes/postgresql.rb
 end
