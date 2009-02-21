@@ -40,9 +40,7 @@ Capistrano::Configuration.instance(:must_exist).load do
     set_owner_of_environment_rb if web_server_type.to_s == 'passenger'
   end
 
-  after :deploy, :roles => :app do
-    deploy.cleanup
-  end
+  after :deploy, deploy.cleanup
 
   def random_password(size = 8)
     chars = (('a'..'z').to_a + ('0'..'9').to_a) - %w(i o 0 1 l 0)
