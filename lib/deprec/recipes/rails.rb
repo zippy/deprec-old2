@@ -40,30 +40,8 @@ Capistrano::Configuration.instance(:must_exist).load do
     set_owner_of_environment_rb if web_server_type.to_s == 'passenger'
   end
 
-  after :deploy, deploy.cleanup
-
-  def random_password(size = 8)
-    chars = (('a'..'z').to_a + ('0'..'9').to_a) - %w(i o 0 1 l 0)
-    (1..size).collect{|a| chars[rand(chars.size)] }.join
-  end
+  after :deploy, "deploy:cleanup"
   
-  def build_db_params(ask=true)
-    db_params = {
-      "adapter"=> db_server_type.to_s,
-      "database"=>"#{application}_#{rails_env}",
-      "username"=> db_server_type == :postgresql ? ((app_server_type == :mongrel)? "mongrel_#{application}" : "nobody") : "root",
-      "password"=> random_password,
-      "host"=>"localhost",
-      "socket"=>""
-    }
-
-    db_params.each do |param, default_val|
-      set "db_#{param}".to_sym, 
-        ask ? lambda { Capistrano::CLI.ui.ask "Enter database #{param}" do |q| q.default=default_val end} : default_val
-    end
-    db_params
-  end
-
   namespace :deprec do
     namespace :rails do
       
