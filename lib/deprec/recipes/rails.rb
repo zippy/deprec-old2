@@ -31,6 +31,7 @@ Capistrano::Configuration.instance(:must_exist).load do
     top.deprec.rails.activate_services
     top.deprec.rails.set_perms_on_shared_and_releases
     top.deprec.web.reload
+    top.deprec.rails.generate_database_yml unless database_yml_in_scm
     top.deprec.rails.setup_database
   end
 
@@ -50,13 +51,13 @@ Capistrano::Configuration.instance(:must_exist).load do
       # If database.yml is not kept in scm and it is present in local
       # config dir then push it out to server.
       #
-      before 'deprec:rails:symlink_database_yml', :roles => :app do
-        push_database_yml unless database_yml_in_scm
-      end
+      #before 'deprec:rails:symlink_database_yml', :roles => :app do
+      #  push_database_yml unless database_yml_in_scm
+      #end
       
       task :setup_database, :roles => :db do
         if ! roles[:db].servers.empty? # Some apps don't use database!
-          deprec2.read_database_yml
+          top.deprec.database.load_params
           top.deprec.db.create_user
           top.deprec.db.create_database
           top.deprec.db.grant_user_access_to_database
@@ -228,13 +229,13 @@ Capistrano::Configuration.instance(:must_exist).load do
 
       desc "prompt the user for the parameters that need to be the database.yml file and push it up to the server"
       task :generate_database_yml, :roles => :app do
-        set :db_params, build_db_params
+        set :db_params, deprec2.build_db_params
         upload_database_yml
       end
 
       desc "create a default set of parameters that for the database.yml file and push it up to the server"
       task :generate_default_database_yml, :roles => :app do
-        set :db_params, build_db_params(false)
+        set :db_params, deprec2.build_db_params(false)
         upload_database_yml
       end
 
@@ -284,18 +285,6 @@ Capistrano::Configuration.instance(:must_exist).load do
       desc "Roll database back to previous migration"
       task :rollback, :roles => :app do
         run "cd #{deploy_to}/current && rake db:rollback RAILS_ENV=#{rails_env}"
-      end
-
-      desc "Create the databases on the server manually instead of through the rails rake tasks"
-      task :create_manually, :roles => :db do
-        load_params
-        case db_server_type
-        when :mysql
-          run "echo 'create database #{db_name};' | mysql -u #{db_user} --password=#{db_password}"
-        when :postgresql
-          top.deprec.postgresql.createuser(db_user, db_password)
-          top.deprec.postgresql.createdb(db_name, db_user)
-        end
       end
 
       desc "Sets the db parameters taking into account whether they are stored in scm or independently on the server"

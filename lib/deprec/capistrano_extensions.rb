@@ -341,6 +341,31 @@ module Deprec2
     set :db_name, db_config[rails_env]["database"]
   end
 
+  def random_password(size = 8)
+    chars = (('a'..'z').to_a + ('0'..'9').to_a) - %w(i o 0 1 l 0)
+    (1..size).collect{|a| chars[rand(chars.size)] }.join
+  end
+  
+  # sets the values of :db_<param> for use by various parts of deprec
+  # it will either set the values by asking the user (if the ask param = true)
+  # or it will generate reasonable defaults
+  def build_db_params(ask=true)
+    db_params = {
+      "adapter"=> db_server_type.to_s,
+      "database"=>"#{application}_#{rails_env}",
+      "username"=> db_server_type == :postgresql ? ((app_server_type == :mongrel)? "mongrel_#{application}" : "nobody") : "root",
+      "password"=> random_password,
+      "host"=>"localhost",
+      "socket"=>""
+    }
+
+    db_params.each do |param, default_val|
+      set "db_#{param}".to_sym, 
+        ask ? lambda { Capistrano::CLI.ui.ask "Enter database #{param}" do |q| q.default=default_val end} : default_val
+    end
+    db_params
+  end
+
 
   ##
   # Run a command and ask for input when input_query is seen.
